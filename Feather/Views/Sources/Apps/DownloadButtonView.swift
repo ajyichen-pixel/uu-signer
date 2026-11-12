@@ -24,8 +24,8 @@ struct DownloadButtonView: View {
 		ZStack {
 			if sourceURL?.host == "uuxp.click" {
                 Button(uuInstaller.busy ? "處理中…" : "安裝") {
-                    guard let url = app.currentDownloadUrl else { return }
-                    Task { await uuInstaller.install(url: url, expectedIdentifier: app.id, provenance: _sourceProvenance()) }
+                    guard let url = app.currentDownloadUrl, let identifier = app.id else { return }
+                    Task { await uuInstaller.install(url: url, expectedIdentifier: identifier, provenance: _sourceProvenance()) }
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(uuInstaller.busy || !uuInstaller.ready || uuInstaller.installApp != nil)

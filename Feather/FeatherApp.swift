@@ -50,6 +50,8 @@ struct FeatherApp: App {
 	}
 	
 	private func _handleURL(_ url: URL) {
+        // UU device credentials must never be sent to an arbitrary callback URL.
+        if url.host == "export-certificate" { return }
 		if url.scheme == "feather" {
 			/// feather://import-certificate?p12=<base64>&mobileprovision=<base64>&password=<base64>
 			if url.host == "import-certificate" {
@@ -253,3 +255,4 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 	}
 
 }
+

@@ -6,3 +6,11 @@ xcuserdata/
 deps
 cert.json
 _build
+
+# Never commit per-device credentials or fulfillment output
+*.p12
+*.mobileprovision
+UUDevice/
+private-delivery/
+__pycache__/
+

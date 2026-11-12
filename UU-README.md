@@ -1,33 +1,33 @@
-# UU 簽署 — 開發中
+# UU 簽署
 
-以 Feather 為基礎的 UU 商店客製版。保留 Feather 及其依賴的著作權與授權，不是從零開發的簽署引擎。
+Feather 的 GPL-3.0 客製版本。保留原作者版權及 LICENSE；修改原始碼公開於 https://github.com/ajyichen-pixel/uu-signer 。
 
-目前已修改原始碼，尚未完成 Xcode 編譯、有效憑證簽署或 iPad 實機驗證。不要將此資料夾或工作流程檢查通過宣稱為安裝成功。
+## 客戶流程
 
-## 使用流程
+每台裝置取得專屬、已簽署的 UU 簽署安裝包後，App 自動驗證並匯入隨附憑證。客戶在 UU 商店按「安裝」，App 接續下載、解包、簽署並顯示 iOS 安裝提示。客戶不需選憑證檔或輸入憑證密碼。系統安裝確認不能跳過。
 
-1. 簽署 App 本身必須先用涵蓋目標裝置的有效憑證簽署並安裝，不能繞過第一次安裝所需憑證。
-2. 開啟即預設 UU 商店，不需貼來源網址；來源 https://uuxp.click/source.json。
-3. 在「憑證」匯入供應商提供的 P12、描述檔及密碼。購買憑證不會自動匯入；供應商 API 尚未串接。
-4. 在「UU 商店」選擇遊戲，下載後到「遊戲庫」簽署，再安裝並確認 iOS 提示。
-5. UU 的遊戲使用授權另外驗證；簽署 App 不包含免費遊戲授權。
+此流程要求裝置專屬憑證。普通 GitHub build 不含憑證，開啟後會清楚顯示未就緒，不能作為客戶安裝包。實機安裝尚未驗證。
 
-這版沿用 Feather 的本機簽署／安裝流程，未完成單一按鈕串起下載、簽署、安裝，也未承諾每個修改版遊戲可用。
+## 交付端
 
-## 編譯
+`tools/personalize.py` 接受原始 UU 簽署 IPA、供應商交付的 P12、描述檔及裝置 UDID。P12 密碼從 `UU_P12_PASSWORD` 環境變數讀取，不放在命令列。
 
-- 原始上游：https://github.com/claration/Feather
-- 上游基準：31ab6de455f2a6108f6830e343dee826310c03be
-- Zsign 子模組：c4ba9da4283031c07efa03bce42c4b8602d22e73
-- IDeviceKit 子模組：837cf1e14d4875771dd5ee1b754a4c86215c5db3
-- 需要相容 Xcode 的 macOS；本 Windows 環境不能編譯 SwiftUI/UIKit 專案。
-- Mac：`git submodule update --init --recursive`，接著 `make iphoneos`。
-- GitHub：在自己的儲存庫啟用 `.github/workflows/uu-build.yml`，執行 Build UU Signer。macOS Actions 是否收費依儲存庫及帳號額度，使用前確認。
-- 工作流程產物 `UU-Signer-UNSIGNED.ipa` 只有本機 ad-hoc signature，仍需有效 Apple 分發簽署才能在一般 iPad 安裝。
-- 上游 Makefile 會下載 backloop.dev 的本機安裝 HTTPS 憑證資料；它不是 Apple App 簽署憑證。
+工具驗證：描述檔 CMS 內容簽章、有效期、P12/描述檔憑證匹配、App ID、描述檔僅列出一台且與訂單裝置相同。CMS 檢查不是 Apple 根憑證鏈驗證，也不代表 Apple 已准許裝置安裝。
 
-## 授權與發佈
+工具產出 `personalized_requires_signing` 狀態的私人 IPA；必須再用該裝置有效憑證完成簽署，才能發送私人安裝連結。打包不等於簽署、簽署不等於實機安裝成功。
 
-本修改版依 GPL-3.0 提供。發佈二進位時須同時提供對應完整原始碼（包含修改與建置流程）及授權文件。`LICENSE` 保留上游原文，子模組各自授權保留。不可只提供上游連結而省略本修改版原始碼。
+專屬包含該客戶簽署私鑰及密碼；只能透過會員授權的私有下載交付該客戶，不能放在公開軟體源、GitHub Releases、Actions artifacts。腳本不會自行上傳，公開編譯不得取得憑證。
 
-憑證／私鑰／Apple 帳號／客戶資料不得提交 GitHub 或包入原始碼壓縮檔。
+多裝置共用的描述檔會被拒絕；供應商必須可交付單裝置描述檔。描述檔可能需要針對不同 App ID 分別核發；尚未驗證 UU 遊戲及 extension 的 provisioning 相容性。
+
+## 尚未接通
+
+商店金流、服務商付款/核發 API、已付款訂單至私人交付的自動工作、專屬 UU 簽署 IPA 的首次簽署與 OTA 交付均未完成。不能將本工具宣稱為已上線的付款後自動交付系統。尚無付費憑證，未在 iPad 完成實機測試。
+
+## 檢查
+
+macOS/Xcode：GitHub Actions `Build UU Signer`。
+交付工具：`python -m pip install -r tools/requirements.txt`，然後 `python -m unittest discover -s tools -p 'test_*.py' -v`。測試使用自簽測試資料，無 Apple 憑證且不會安裝到裝置。
+
+上游子模組：Zsign c4ba9da4283031c07efa03bce42c4b8602d22e73；IDeviceKitten 837cf1e14d4875771dd5ee1b754a4c86215c5db3。
+
