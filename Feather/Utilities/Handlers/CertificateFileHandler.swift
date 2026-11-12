@@ -52,7 +52,7 @@ final class CertificateFileHandler: NSObject {
 		try _fileManager.copyItem(at: _provision, to: destinationURL.appendingPathComponent(_provision.lastPathComponent))
 	}
 	
-	func addToDatabase() async throws {
+	@MainActor func addToDatabase() async throws {
 		
 		Storage.shared.addCertificate(
 			uuid: _uuid,
@@ -75,3 +75,4 @@ final class CertificateFileHandler: NSObject {
 private enum CertificateFileHandlerError: Error {
 	case certNotValid
 }
+

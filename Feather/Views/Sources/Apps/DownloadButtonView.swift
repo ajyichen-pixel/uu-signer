@@ -16,12 +16,20 @@ struct DownloadButtonView: View {
 	let app: ASRepository.App
 	@ObservedObject private var downloadManager = DownloadManager.shared
 
+	@ObservedObject private var uuInstaller = UUInstallCoordinator.shared
 	@State private var downloadProgress: Double = 0
 	@State private var cancellable: AnyCancellable?
 
 	var body: some View {
 		ZStack {
-			if let currentDownload = downloadManager.getDownload(by: app.currentUniqueId) {
+			if sourceURL?.host == "uuxp.click" {
+                Button(uuInstaller.busy ? "處理中…" : "安裝") {
+                    guard let url = app.currentDownloadUrl else { return }
+                    Task { await uuInstaller.install(url: url, expectedIdentifier: app.id, provenance: _sourceProvenance()) }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(uuInstaller.busy || !uuInstaller.ready || uuInstaller.installApp != nil)
+            } else if let currentDownload = downloadManager.getDownload(by: app.currentUniqueId) {
 				ZStack {
 					Circle()
 						.trim(from: 0, to: downloadProgress)
@@ -94,3 +102,4 @@ struct DownloadButtonView: View {
 		return SourceAppProvenance(sourceURL: sourceURL, repository: source, app: app)
 	}
 }
+

@@ -6,6 +6,7 @@ import NimbleViews
 
 struct SourcesView: View {
     @StateObject private var viewModel = SourcesViewModel.shared
+    @ObservedObject private var installer = UUInstallCoordinator.shared
     @State private var sourceError: String?
     @FetchRequest(entity: AltSource.entity(), sortDescriptors: [NSSortDescriptor(keyPath: \AltSource.name, ascending: true)])
     private var sources: FetchedResults<AltSource>
@@ -17,7 +18,7 @@ struct SourcesView: View {
             List {
                 Section {
                     Text("UU 遊戲").font(.largeTitle.bold())
-                    Text("選擇遊戲，下載後使用自己的憑證簽署安裝。")
+                    Text("選擇遊戲，按安裝即可自動下載與簽署。")
                         .foregroundStyle(.secondary)
                     if let sourceError {
                         Text(sourceError).foregroundStyle(.red)
@@ -34,23 +35,15 @@ struct SourcesView: View {
                         ProgressView("準備 UU 商店…")
                     }
                 }
-                Section("首次使用") {
-                    NavigationLink {
-                        CertificatesView()
-                    } label: {
-                        Label("匯入／管理簽署憑證", systemImage: "checkmark.seal")
+                Section("我的裝置") {
+                    Label(installer.status, systemImage: installer.ready ? "checkmark.seal.fill" : "clock")
+                    if !installer.ready {
+                        Text("購買完成並取得專屬安裝包後，憑證會自動設定，不需選檔或輸入憑證密碼。")
+                            .font(.footnote).foregroundStyle(.secondary)
+                        Button("重新檢查") { Task { await installer.prepare() } }
+                            .disabled(installer.busy)
                     }
-                    Link("購買憑證（外部服務）", destination: URL(string: "https://www.udidregistrations.com/buy")!)
-                    Text("購買後匯入 P12、描述檔與憑證密碼。憑證依裝置計費，與 UU 遊戲時間分開；目前尚未完成本版本實機驗證。")
-                        .font(.footnote).foregroundStyle(.secondary)
-                }
-                Section("下載之後") {
-                    NavigationLink { LibraryView() } label: {
-                        Label("簽署與安裝", systemImage: "signature")
-                    }
-                    Text("在遊戲庫選擇下載的遊戲，簽署完成後按安裝。iOS 仍會要求系統確認。")
-                        .font(.footnote).foregroundStyle(.secondary)
-                    Link("UU 授權商店", destination: URL(string: "https://uuxp.click/")!)
+                    Link("我的訂單", destination: URL(string: "https://uuxp.click/#orders")!)
                 }
                 Section("開源授權") {
                     Text("UU 簽署是 Feather 的客製版本，使用 Zsign 簽署引擎。保留原作者版權，以 GPL-3.0 提供修改後原始碼。")
@@ -74,3 +67,4 @@ struct SourcesView: View {
         }
     }
 }
+

@@ -46,7 +46,6 @@ enum TabEnum: String, CaseIterable, Hashable {
 		return [
 			.sources,
 			.library,
-			.certificates,
 			.settings
 		]
 	}
@@ -55,3 +54,4 @@ enum TabEnum: String, CaseIterable, Hashable {
 		return []
 	}
 }
+
