@@ -16,10 +16,10 @@ enum TabEnum: String, CaseIterable, Hashable {
 	
 	var title: String {
 		switch self {
-		case .sources:     	return .localized("Sources")
-		case .library: 		return .localized("Library")
+		case .sources:     	return "UU 商店"
+		case .library: 		return "遊戲庫"
 		case .settings: 	return .localized("Settings")
-		case .certificates:	return .localized("Certificates")
+		case .certificates:	return "憑證"
 		}
 	}
 	
@@ -46,13 +46,12 @@ enum TabEnum: String, CaseIterable, Hashable {
 		return [
 			.sources,
 			.library,
+			.certificates,
 			.settings
 		]
 	}
 	
 	static var customizableTabs: [TabEnum] {
-		return [
-			.certificates
-		]
+		return []
 	}
 }

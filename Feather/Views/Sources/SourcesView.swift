@@ -1,134 +1,76 @@
-//
-//  SourcesView.swift
-//  Feather
-//
-//  Created by samara on 10.04.2025.
-//
-
+// UU Store customization, 2026-11-12. Based on Feather, GPL-3.0.
 import CoreData
 import AltSourceKit
 import SwiftUI
 import NimbleViews
 
-// MARK: - View
 struct SourcesView: View {
-	@Environment(\.horizontalSizeClass) private var horizontalSizeClass
-	#if !NIGHTLY && !DEBUG
-		@AppStorage("Feather.shouldStar") private var _shouldStar: Int = 0
-	#endif
-	@StateObject var viewModel = SourcesViewModel.shared
-	@State private var _isAddingPresenting = false
-	@State private var _addingSourceLoading = false
-	@State private var _searchText = ""
-	
-	private var _filteredSources: [AltSource] {
-		_sources.filter { _searchText.isEmpty || ($0.name?.localizedCaseInsensitiveContains(_searchText) ?? false) }
-	}
-	
-	@FetchRequest(
-		entity: AltSource.entity(),
-		sortDescriptors: [NSSortDescriptor(keyPath: \AltSource.name, ascending: true)],
-		animation: .snappy
-	) private var _sources: FetchedResults<AltSource>
-	
-	// MARK: Body
-	var body: some View {
-		NBNavigationView(.localized("Sources")) {
-			NBListAdaptable {
-				if !_filteredSources.isEmpty {
-					Section {
-						NavigationLink {
-							SourceAppsView(object: Array(_sources), viewModel: viewModel)
-						} label: {
-							let isRegular = horizontalSizeClass != .compact
-							HStack(spacing: 18) {
-								Image("Repositories").appIconStyle()
-								NBTitleWithSubtitleView(
-									title: .localized("All Repositories"),
-									subtitle: .localized("See all apps from your sources")
-								)
-							}
-							.padding(isRegular ? 12 : 0)
-							.background(
-								isRegular
-									? RoundedRectangle(cornerRadius: 18, style: .continuous)
-									.fill(Color(.quaternarySystemFill))
-									: nil
-							)
-						}
-						.buttonStyle(.plain)
-					}
-					
-					NBSection(
-						.localized("Repositories"),
-						secondary: _filteredSources.count.description
-					) {
-						ForEach(_filteredSources) { source in
-							NavigationLink {
-								SourceAppsView(object: [source], viewModel: viewModel)
-							} label: {
-								SourcesCellView(source: source)
-							}
-							.buttonStyle(.plain)
-						}
-					}
-				}
-			}
-			.searchable(text: $_searchText, placement: .platform())
-			.overlay {
-				if _filteredSources.isEmpty {
-					if #available(iOS 17, *) {
-						ContentUnavailableView {
-							Label(.localized("No Repositories"), systemImage: "globe.desk.fill")
-						} description: {
-							Text(.localized("Get started by adding your first repository."))
-						} actions: {
-							Button {
-								_isAddingPresenting = true
-							} label: {
-								NBButton(.localized("Add Source"), style: .text)
-							}
-						}
-					}
-				}
-			}
-			.toolbar {
-				NBToolbarButton(
-					systemImage: "plus",
-					style: .icon,
-					placement: .topBarTrailing,
-					isDisabled: _addingSourceLoading
-				) {
-					_isAddingPresenting = true
-				}
-			}
-			.refreshable {
-				await viewModel.fetchSources(_sources, refresh: true)
-			}
-			.sheet(isPresented: $_isAddingPresenting) {
-				SourcesAddView()
-			}
-		}
-		.task(id: Array(_sources)) {
-			await viewModel.fetchSources(_sources)
-		}
-		#if !NIGHTLY && !DEBUG
-		.onAppear {
-				guard _shouldStar < 6 else { return }; _shouldStar += 1
-				guard _shouldStar == 6 else { return }
-			
-				let github = UIAlertAction(title: "GitHub", style: .default) { _ in
-					UIApplication.open("https://github.com/khcrysalis/Feather")
-				}
-			
-				let cancel = UIAlertAction(title: .localized("Dismiss"), style: .cancel)
-			
-				UIAlertController.showAlert(
-					title: .localized("Enjoying %@?", arguments: Bundle.main.name),
-					message: .localized("Go to our GitHub and give us a star!"),
-					actions: [github, cancel]
-				)
-			}
-		#endif
-	}
+    @StateObject private var viewModel = SourcesViewModel.shared
+    @State private var sourceError: String?
+    @FetchRequest(entity: AltSource.entity(), sortDescriptors: [NSSortDescriptor(keyPath: \AltSource.name, ascending: true)])
+    private var sources: FetchedResults<AltSource>
+    private var uuSources: [AltSource] {
+        sources.filter { $0.sourceURL?.absoluteString == "https://uuxp.click/source.json" }
+    }
+    var body: some View {
+        NBNavigationView("UU 商店") {
+            List {
+                Section {
+                    Text("UU 遊戲").font(.largeTitle.bold())
+                    Text("選擇遊戲，下載後使用自己的憑證簽署安裝。")
+                        .foregroundStyle(.secondary)
+                    if let sourceError {
+                        Text(sourceError).foregroundStyle(.red)
+                        Button("重新載入") { installBuiltInSource() }
+                    }
+                    if !uuSources.isEmpty {
+                        NavigationLink {
+                            SourceAppsView(object: uuSources, viewModel: viewModel)
+                        } label: {
+                            Label("選擇遊戲", systemImage: "gamecontroller.fill")
+                                .font(.title3.bold())
+                        }
+                    } else {
+                        ProgressView("準備 UU 商店…")
+                    }
+                }
+                Section("首次使用") {
+                    NavigationLink {
+                        CertificatesView()
+                    } label: {
+                        Label("匯入／管理簽署憑證", systemImage: "checkmark.seal")
+                    }
+                    Link("購買憑證（外部服務）", destination: URL(string: "https://www.udidregistrations.com/buy")!)
+                    Text("購買後匯入 P12、描述檔與憑證密碼。憑證依裝置計費，與 UU 遊戲時間分開；目前尚未完成本版本實機驗證。")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
+                Section("下載之後") {
+                    NavigationLink { LibraryView() } label: {
+                        Label("簽署與安裝", systemImage: "signature")
+                    }
+                    Text("在遊戲庫選擇下載的遊戲，簽署完成後按安裝。iOS 仍會要求系統確認。")
+                        .font(.footnote).foregroundStyle(.secondary)
+                    Link("UU 授權商店", destination: URL(string: "https://uuxp.click/")!)
+                }
+                Section("開源授權") {
+                    Text("UU 簽署是 Feather 的客製版本，使用 Zsign 簽署引擎。保留原作者版權，以 GPL-3.0 提供修改後原始碼。")
+                        .font(.footnote).foregroundStyle(.secondary)
+                    Link("Feather 原始專案", destination: URL(string: "https://github.com/claration/Feather")!)
+                }
+            }
+            .refreshable { await viewModel.fetchSources(sources, refresh: true) }
+        }
+        .task { installBuiltInSource() }
+        .task(id: Array(sources)) { await viewModel.fetchSources(sources) }
+    }
+    @MainActor private func installBuiltInSource() {
+        guard uuSources.isEmpty else { return }
+        Storage.shared.addSource(
+            URL(string: "https://uuxp.click/source.json")!,
+            name: "UU 遊戲", identifier: "click.uuxp.source",
+            iconURL: URL(string: "https://uuxp.click/uu.png")
+        ) { error in
+            sourceError = error == nil ? nil : "無法儲存 UU 來源，請重試。"
+        }
+    }
 }

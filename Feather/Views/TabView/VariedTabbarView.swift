@@ -10,11 +10,5 @@ import SwiftUI
 struct VariedTabbarView: View {
 	init() {}
 	
-	var body: some View {
-		if #available(iOS 18, *) {
-			ExtendedTabbarView()
-		} else {
-			TabbarView()
-		}
-	}
+	var body: some View { TabbarView().tint(Color(red: 0.66, green: 0.33, blue: 0.97)) }
 }

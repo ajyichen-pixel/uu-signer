@@ -1,0 +1,47 @@
+name: Build UU Signer
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  ios:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Show toolchain
+        run: xcodebuild -version
+      - name: Build iOS package (not distribution-signed)
+        run: |
+          set -euo pipefail
+          make iphoneos
+          mv packages/Feather.ipa packages/UU-Signer-UNSIGNED.ipa
+      - name: Verify archive and app identity
+        run: |
+          python3 - <<'PY'
+          import zipfile, plistlib
+          with zipfile.ZipFile('packages/UU-Signer-UNSIGNED.ipa') as z:
+              assert z.testzip() is None
+              info = plistlib.loads(z.read('Payload/Feather.app/Info.plist'))
+              assert info['CFBundleDisplayName'] == 'UU 簽署'
+              assert info['CFBundleIdentifier'].startswith('click.uuxp.signer')
+              print('IPA structure verified; device signing and installation are still required.')
+          PY
+      - name: Package corresponding source
+        run: |
+          git rev-parse HEAD > UU-BUILD-COMMIT.txt
+          tar --exclude=.git --exclude=_build --exclude=packages --exclude=deps --exclude=cert.json -czf packages/UU-Signer-Source.tar.gz .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: UU-Signer-test-build
+          path: |
+            packages/UU-Signer-UNSIGNED.ipa
+            packages/UU-Signer-Source.tar.gz
+            LICENSE
+            UU-README.md
+          if-no-files-found: error
+          retention-days: 14
