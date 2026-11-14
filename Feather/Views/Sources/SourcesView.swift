@@ -5,6 +5,7 @@ import SwiftUI
 import NimbleViews
 
 struct SourcesView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var viewModel = SourcesViewModel.shared
     @ObservedObject private var installer = UUInstallCoordinator.shared
     @State private var sourceError: String?
@@ -55,6 +56,11 @@ struct SourcesView: View {
         }
         .task { installBuiltInSource() }
         .task(id: Array(sources)) { await viewModel.fetchSources(sources) }
+        .onChange(of: scenePhase) { phase in
+            if phase == .active && !installer.busy {
+                Task { await viewModel.fetchSources(sources, refresh: true) }
+            }
+        }
     }
     @MainActor private func installBuiltInSource() {
         guard uuSources.isEmpty else { return }
