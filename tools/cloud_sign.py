@@ -12,14 +12,21 @@ from pathlib import Path, PurePosixPath
 import plistlib
 import re
 import sys
+import subprocess
 import tempfile
 import urllib.request
 import zipfile
 from cryptography.hazmat.primitives.serialization import pkcs12, Encoding, PrivateFormat, NoEncryption
-from first_sign import run, ORIGIN
 from personalize import validate
 
+ORIGIN = 'https://uuxp.click'
 APPS = {'click.uuxp.signer', 'com.garena.game.kgtwtw'}
+
+def run(command):
+    result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if result.returncode:
+        raise ValueError('Signing/verification failed; no package delivered')
+    return result.stdout
 
 def inspect_package(path):
     with zipfile.ZipFile(path) as archive:
