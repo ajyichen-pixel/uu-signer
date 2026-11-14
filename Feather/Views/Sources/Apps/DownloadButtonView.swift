@@ -23,7 +23,7 @@ struct DownloadButtonView: View {
 	var body: some View {
 		ZStack {
 			if sourceURL?.host == "uuxp.click" {
-                Button(uuInstaller.busy ? "處理中…" : "安裝") {
+                Button(uuInstaller.busy ? "處理中…" : uuInstaller.actionTitle(identifier: app.id, remoteVersion: app.currentVersion)) {
                     guard let url = app.currentDownloadUrl, let identifier = app.id else { return }
                     Task { await uuInstaller.install(url: url, expectedIdentifier: identifier, provenance: _sourceProvenance()) }
                 }
@@ -102,4 +102,3 @@ struct DownloadButtonView: View {
 		return SourceAppProvenance(sourceURL: sourceURL, repository: source, app: app)
 	}
 }
-

@@ -10,7 +10,23 @@ import CryptoKit
     @Published var error: String?
     @Published var ready = false
     @Published var installApp: AnyApp?
+    @Published private(set) var installedVersions = UserDefaults.standard.dictionary(forKey: "UU.installedVersions") as? [String: String] ?? [:]
     private var certificate: CertificatePair?
+
+    func actionTitle(identifier: String?, remoteVersion: String?) -> String {
+        guard let identifier, let local = installedVersions[identifier] else { return "安裝" }
+        guard let remoteVersion, remoteVersion != local else { return "重新安裝" }
+        return remoteVersion.compare(local, options: .numeric) == .orderedDescending ? "更新" : "重新安裝"
+    }
+
+    // Called only after the installer reports completion, not after signing or download.
+    func recordInstallation(_ app: AppInfoPresentable) {
+        guard app.uuid == installApp?.base.uuid,
+              let identifier = app.identifier, let version = app.version else { return }
+        installedVersions[identifier] = version
+        UserDefaults.standard.set(installedVersions, forKey: "UU.installedVersions")
+        status = "安裝完成，之後可從 UU 商店更新遊戲"
+    }
 
     struct DeviceAssets: Decodable {
         let profileUUID: String
@@ -94,7 +110,8 @@ import CryptoKit
         defer { if let temporary { try? FileManager.default.removeItem(at: temporary) } }
         do {
             status = "正在下載遊戲，請保持 App 開啟…"
-            let (downloaded, response) = try await URLSession.shared.download(from: url)
+            let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 300)
+            let (downloaded, response) = try await URLSession.shared.download(for: request)
             temporary = downloaded
             guard let response = response as? HTTPURLResponse, response.statusCode == 200,
                   response.url?.host == "uuxp.click", response.url?.scheme == "https" else {
@@ -115,11 +132,14 @@ import CryptoKit
                 try? await handler.clean()
                 throw error
             }
-            let request = Imported.fetchRequest()
-            request.predicate = NSPredicate(format: "uuid == %@", handler.resultUUID)
-            guard let imported = try Storage.shared.context.fetch(request).first,
+            let importedRequest = Imported.fetchRequest()
+            importedRequest.predicate = NSPredicate(format: "uuid == %@", handler.resultUUID)
+            guard let imported = try Storage.shared.context.fetch(importedRequest).first,
                   imported.identifier == expectedIdentifier else {
                 throw failure("遊戲檔案與商店項目不符，已停止安裝。")
+            }
+            if let expectedVersion = provenance?.sourceAppVersion, imported.version != expectedVersion {
+                throw failure("遊戲檔案版本與商店不一致，請重新整理商店後再試。")
             }
             status = "正在自動簽署…"
             let signing = SigningHandler(app: imported, options: .defaultOptions)
@@ -146,4 +166,3 @@ import CryptoKit
         }
     }
 }
-

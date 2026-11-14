@@ -14,6 +14,7 @@ struct LibraryCellView: View {
 	@Environment(\.horizontalSizeClass) private var horizontalSizeClass
 	@Environment(\.editMode) private var editMode
 	@ObservedObject private var updateManager = UpdateManager.shared
+	@ObservedObject private var uuInstaller = UUInstallCoordinator.shared
 	@State private var _signedUpdateConfirmation: AppUpdate?
 	@State private var _isSignedUpdateConfirmationPresented = false
 
@@ -172,7 +173,9 @@ extension LibraryCellView {
 	private func _contextActionsExtra(for app: AppInfoPresentable) -> some View {
 		if let update = updateManager.update(for: app) {
 			Button(.localized("Update"), systemImage: "arrow.down.circle") {
-				if app.isSigned {
+				if update.sourceURL.host == "uuxp.click" {
+					_startUpdateDownload(update)
+				} else if app.isSigned {
 					_signedUpdateConfirmation = update
 					_isSignedUpdateConfirmationPresented = true
 				} else {
@@ -210,7 +213,10 @@ extension LibraryCellView {
 	private func _buttonActions(for app: AppInfoPresentable) -> some View {
 		Group {
 			if let update = updateManager.update(for: app) {
-				if app.isSigned {
+				if update.sourceURL.host == "uuxp.click" {
+					Button(uuInstaller.busy ? "處理中…" : "更新") { _startUpdateDownload(update) }
+						.disabled(uuInstaller.busy || uuInstaller.installApp != nil)
+				} else if app.isSigned {
 					Button {
 						_signedUpdateConfirmation = update
 						_isSignedUpdateConfirmationPresented = true
@@ -258,6 +264,10 @@ extension LibraryCellView {
 	}
 	
 	private func _startUpdateDownload(_ update: AppUpdate) {
+		if update.sourceURL.host == "uuxp.click" {
+			Task { await uuInstaller.install(url: update.downloadURL, expectedIdentifier: update.bundleIdentifier, provenance: update.sourceProvenance) }
+			return
+		}
 		_ = DownloadManager.shared.startDownload(
 			from: update.downloadURL,
 			id: "FeatherManualDownload_Update_\(update.localUUID)",

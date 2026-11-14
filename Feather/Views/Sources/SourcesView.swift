@@ -18,7 +18,7 @@ struct SourcesView: View {
             List {
                 Section {
                     Text("UU 遊戲").font(.largeTitle.bold())
-                    Text("選擇遊戲，按安裝即可自動下載與簽署。")
+                    Text("首次按「安裝」；改版後按「更新」，自動下載與簽署，再確認 iOS 安裝提示。")
                         .foregroundStyle(.secondary)
                     if let sourceError {
                         Text(sourceError).foregroundStyle(.red)
@@ -67,4 +67,3 @@ struct SourcesView: View {
         }
     }
 }
-
