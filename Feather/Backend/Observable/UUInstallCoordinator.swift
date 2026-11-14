@@ -12,6 +12,25 @@ import CryptoKit
     @Published var installApp: AnyApp?
     @Published private(set) var installedVersions = UserDefaults.standard.dictionary(forKey: "UU.installedVersions") as? [String: String] ?? [:]
     private var certificate: CertificatePair?
+    @Published private(set) var downloadProgress: Double?
+    @Published private(set) var downloading = false
+    private var operation: Task<Void, Never>?
+    private var lastRequest: (URL, String, SourceAppProvenance?)?
+    var canRetry: Bool { lastRequest != nil && !busy && installApp == nil }
+
+    func startInstall(url: URL, identifier: String, provenance: SourceAppProvenance?) {
+        guard operation == nil, !busy, installApp == nil else { return }
+        lastRequest = (url, identifier, provenance)
+        operation = Task {
+            await install(url: url, expectedIdentifier: identifier, provenance: provenance)
+            operation = nil
+        }
+    }
+    func cancelDownload() { if downloading { operation?.cancel() } }
+    func retry() {
+        guard let (url, identifier, provenance) = lastRequest else { return }
+        startInstall(url: url, identifier: identifier, provenance: provenance)
+    }
 
     func actionTitle(identifier: String?, remoteVersion: String?) -> String {
         guard let identifier, let local = installedVersions[identifier] else { return "安裝" }
@@ -105,14 +124,26 @@ import CryptoKit
         }
         busy = true
         error = nil
-        defer { busy = false }
+        downloadProgress = nil
+        defer { busy = false; downloading = false; downloadProgress = nil }
         var temporary: URL?
         defer { if let temporary { try? FileManager.default.removeItem(at: temporary) } }
         do {
             status = "正在下載遊戲，請保持 App 開啟…"
+            downloading = true
+            let progress = UUDownloadProgress { [weak self] received, total in
+                Task { @MainActor in
+                    guard let self, self.downloading else { return }
+                    self.downloadProgress = total > 0 ? min(1, Double(received) / Double(total)) : nil
+                    let amount = ByteCountFormatter.string(fromByteCount: received, countStyle: .file)
+                    self.status = "正在下載遊戲：" + amount
+                }
+            }
             let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 300)
-            let (downloaded, response) = try await URLSession.shared.download(for: request)
+            let (downloaded, response) = try await URLSession.shared.download(for: request, delegate: progress)
             temporary = downloaded
+            downloading = false
+            try Task.checkCancellation()
             guard let response = response as? HTTPURLResponse, response.statusCode == 200,
                   response.url?.host == "uuxp.click", response.url?.scheme == "https" else {
                 throw failure("下載失敗，請稍後重試。")
@@ -160,9 +191,25 @@ import CryptoKit
             // Present the exact signed result, never whichever app happens to be newest.
             installApp = AnyApp(base: signed)
             status = "請確認 iOS 安裝提示；安裝結果以裝置顯示為準"
+        } catch is CancellationError {
+            status = "已取消下載，可重新安裝"
+        } catch let cancelled as URLError where cancelled.code == .cancelled {
+            status = "已取消下載，可重新安裝"
         } catch {
             self.error = error.localizedDescription
             status = "安裝準備失敗，可重新嘗試"
         }
     }
+}
+
+private final class UUDownloadProgress: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
+    private let progress: @Sendable (Int64, Int64) -> Void
+    init(progress: @escaping @Sendable (Int64, Int64) -> Void) { self.progress = progress }
+    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask,
+                    didWriteData bytesWritten: Int64, totalBytesWritten: Int64,
+                    totalBytesExpectedToWrite: Int64) {
+        progress(totalBytesWritten, totalBytesExpectedToWrite)
+    }
+    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask,
+                    didFinishDownloadingTo location: URL) {}
 }

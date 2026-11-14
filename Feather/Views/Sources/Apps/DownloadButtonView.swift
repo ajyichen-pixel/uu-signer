@@ -25,7 +25,7 @@ struct DownloadButtonView: View {
 			if sourceURL?.host == "uuxp.click" {
                 Button(uuInstaller.busy ? "處理中…" : uuInstaller.actionTitle(identifier: app.id, remoteVersion: app.currentVersion)) {
                     guard let url = app.currentDownloadUrl, let identifier = app.id else { return }
-                    Task { await uuInstaller.install(url: url, expectedIdentifier: identifier, provenance: _sourceProvenance()) }
+                    uuInstaller.startInstall(url: url, identifier: identifier, provenance: _sourceProvenance())
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(uuInstaller.busy || !uuInstaller.ready || uuInstaller.installApp != nil)
