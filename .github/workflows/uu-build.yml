@@ -30,6 +30,7 @@ jobs:
           set -euo pipefail
           make iphoneos
           mv packages/Feather.ipa packages/UU-Signer-UNSIGNED.ipa
+          /tmp/uu-tests/bin/python tools/prepare_cloud.py packages/UU-Signer-UNSIGNED.ipa
       - name: Verify archive and app identity
         run: |
           python3 - <<'PY'
@@ -55,5 +56,4 @@ jobs:
             UU-README.md
           if-no-files-found: error
           retention-days: 14
-
 

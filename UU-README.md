@@ -2,32 +2,31 @@
 
 Feather 的 GPL-3.0 客製版本。保留原作者版權及 LICENSE；修改原始碼公開於 https://github.com/ajyichen-pixel/uu-signer 。
 
-## 客戶流程
+## 目前的官網交付模式
 
-每台裝置取得專屬、已簽署的 UU 簽署安裝包後，App 自動驗證並匯入隨附憑證。客戶在 UU 商店按「安裝」，App 接續下載、解包、簽署並顯示 iOS 安裝提示。客戶不需選憑證檔或輸入憑證密碼。系統安裝確認不能跳過。
+`UUCloudDelivery=true` 的版本開啟 UU 官網會員安裝頁。客戶先從官網安裝已簽署的 UU 簽署，再從 App 內選擇遊戲安裝或更新。iOS 的安裝確認仍需客戶操作。
 
-此流程要求裝置專屬憑證。普通 GitHub build 不含憑證，開啟後會清楚顯示未就緒，不能作為客戶安裝包。實機安裝尚未驗證。
+自己的 Apple Developer 共用私鑰只留在私人簽署主機，絕不放進客戶 App、公開原始碼或 GitHub Actions。客戶不必匯入憑證。每個 App 及裝置使用相符的 Ad Hoc 描述檔；憑證及描述檔的有效期不等於永不撤銷的保證。
 
-## 交付端
+## 私人交付工具
 
-`tools/personalize.py` 接受原始 UU 簽署 IPA、供應商交付的 P12、描述檔及裝置 UDID。P12 密碼從 `UU_P12_PASSWORD` 環境變數讀取，不放在命令列。
+- `tools/cloud_sign.py`：macOS 簽署、codesign 驗證及分段交付。
+- `tools/deliver_signed.py`：驗證私人主機已簽署的 IPA，符合條件後才上傳官網。可處理 Windows zsign 產物。
+- `tools/verify_ipa_signature.py`：檢查 Mach-O 程式頁面雜湊、CMS 簽章與預期憑證、Info.plist／資源封印。這不是 Apple 根信任與裝置政策驗證的替代品。
+- `tools/prepare_cloud.py`：移除上游供本機 HTTPS 伺服器使用的 server.pem 和舊簽章資料，並拒絕其他私鑰檔。產物仍須正式簽署。
 
-工具驗證：描述檔 CMS 內容簽章、有效期、P12/描述檔憑證匹配、App ID、描述檔僅列出一台且與訂單裝置相同。CMS 檢查不是 Apple 根憑證鏈驗證，也不代表 Apple 已准許裝置安裝。
+交付前檢查描述檔 CMS、憑證與私鑰匹配、有效期、App ID、描述檔僅含指定一台裝置，以及 IPA 內嵌描述檔完全一致。檔案以 8 MiB 分段上傳，每段驗證 SHA-256，會員只能取得自己的限時 OTA 連結。
 
-工具產出 `personalized_requires_signing` 狀態的私人 IPA；必須再用該裝置有效憑證完成簽署，才能發送私人安裝連結。打包不等於簽署、簽署不等於實機安裝成功。
+`personalize.py` 與 `first_sign.py` 是舊的單裝置供應商憑證模式，不可用來將店主共用的 Apple 私鑰嵌入客戶 App。
 
-專屬包含該客戶簽署私鑰及密碼；只能透過會員授權的私有下載交付該客戶，不能放在公開軟體源、GitHub Releases、Actions artifacts。腳本不會自行上傳，公開編譯不得取得憑證。
+## 驗證狀態與限制
 
-多裝置共用的描述檔會被拒絕；供應商必須可交付單裝置描述檔。描述檔可能需要針對不同 App ID 分別核發；尚未驗證 UU 遊戲及 extension 的 provisioning 相容性。
+2026-11-14 已用真實 Apple Distribution 憑證簽署兩個測試 App，通過本機完整性檢查並交付官網。iPad 安裝、開啟及後續版本升級仍須實機確認；不得把後台 ready 狀態宣稱為裝置已安裝。
 
-## 尚未接通
+Apple 裝置註冊／描述檔核發目前人工操作；已付款訂單到簽署工作的全自動執行仍未完成。不能宣稱所有新客戶付款後已可自動交付。
 
-商店金流、服務商付款/核發 API、已付款訂單至私人交付的自動工作、專屬 UU 簽署 IPA 的首次簽署與 OTA 交付均未完成。不能將本工具宣稱為已上線的付款後自動交付系統。尚無付費憑證，未在 iPad 完成實機測試。
+## 檢查與建置
 
-## 檢查
-
-macOS/Xcode：GitHub Actions `Build UU Signer`。
-交付工具：`python -m pip install -r tools/requirements.txt`，然後 `python -m unittest discover -s tools -p 'test_*.py' -v`。測試使用自簽測試資料，無 Apple 憑證且不會安裝到裝置。
-
+macOS/Xcode：GitHub Actions `Build UU Signer` 產生未正式簽署 IPA，公開 CI 不使用私人憑證。
+交付工具：安裝 `tools/requirements.txt` 後執行 `python -m unittest discover -s tools -p 'test_*.py' -v`。
 上游子模組：Zsign c4ba9da4283031c07efa03bce42c4b8602d22e73；IDeviceKitten 837cf1e14d4875771dd5ee1b754a4c86215c5db3。
-

@@ -20,7 +20,7 @@ from cryptography.hazmat.primitives.serialization import pkcs12, Encoding, Priva
 from personalize import validate
 
 ORIGIN = 'https://uuxp.click'
-APPS = {'click.uuxp.signer', 'com.garena.game.kgtwtw'}
+APPS = {'click.uuxp.signer', 'com.garena.game.kgtwtw', 'com.garena.game.kgtwtw.94895TH36R'}
 
 def run(command):
     result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -52,7 +52,7 @@ def api(path, token, data=b'{}', method='POST', extra=None):
     class NoRedirect(urllib.request.HTTPRedirectHandler):
         def redirect_request(self, req, fp, code, msg, headers, newurl):
             return None
-    headers = {'Authorization': 'Bearer '+token, 'Content-Type': 'application/json', **(extra or {})}
+    headers = {'Authorization': 'Bearer '+token, 'Content-Type': 'application/json', 'User-Agent':'UU-Signing-Host/1.0', **(extra or {})}
     req = urllib.request.Request(ORIGIN+path, data=data, method=method, headers=headers)
     with urllib.request.build_opener(NoRedirect).open(req, timeout=180) as response:
         return json.load(response)
