@@ -1,5 +1,6 @@
 import SwiftUI
 import Security
+import CryptoKit
 
 // Native UI. Signing keys remain on the private signing host.
 struct VariedTabbarView: View {
@@ -79,6 +80,11 @@ private final class UUNoRedirect: NSObject, URLSessionTaskDelegate {
         return URLSession(configuration: c, delegate: redirectGuard, delegateQueue: nil)
     }()
     private var transfer: UUFileTransfer?
+    private var deviceLabel: String? {
+        guard let url = Bundle.main.url(forResource: "embedded", withExtension: "mobileprovision"),
+              let devices = CertificateReader(url).decoded?.ProvisionedDevices, devices.count == 1, let device = devices.first else { return nil }
+        return String(SHA256.hash(data: Data(device.uppercased().utf8)).map { String(format: "%02x", $0) }.joined().suffix(6)).uppercased()
+    }
     private var refreshBusy = false
     private var generation = 0
     private var recordKey: String { "UU.native.downloads." + (account?.id ?? "none") }
@@ -143,11 +149,11 @@ private final class UUNoRedirect: NSObject, URLSessionTaskDelegate {
             let work: UUJobs = try await call("/api/installations/jobs")
             guard current == generation, account != nil else { return }
             var seen = Set<String>()
-            packages = apps.installations.sorted {
+            packages = apps.installations.filter { deviceLabel == nil || $0.deviceLabel == deviceLabel }.sorted {
                 if ($0.status == "ready") != ($1.status == "ready") { return $0.status == "ready" }
                 return $0.version.compare($1.version, options: .numeric) == .orderedDescending
             }.filter { seen.insert($0.bundleId + ":" + $0.deviceLabel).inserted }
-            jobs = work.jobs.filter { !["ready", "paused"].contains($0.status) }
+            jobs = work.jobs.filter { !["ready", "paused"].contains($0.status) && ($0.status == "awaiting_device" || deviceLabel == nil || $0.deviceLabel == deviceLabel) }
         } catch { self.error = error.localizedDescription }
     }
     private func loadRecords() {
